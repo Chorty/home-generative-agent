@@ -315,15 +315,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: HGAConfigEntry) -> bool:
     openai_provider: RunnableSerializable[LanguageModelInput, BaseMessage] | None = None
     if openai_ok:
         try:
-            openai_provider = ChatOpenAI(
-                api_key=api_key,
-                timeout=120,
-                http_async_client=http_client,
-            ).configurable_fields(
-                model_name=ConfigurableField(id="model_name"),
-                temperature=ConfigurableField(id="temperature"),
-                top_p=ConfigurableField(id="top_p"),
-                max_tokens=ConfigurableField(id="max_tokens"),
+            def _create_openai_provider() -> RunnableSerializable[
+                LanguageModelInput, BaseMessage
+            ]:
+                return ChatOpenAI(
+                    api_key=api_key,
+                    timeout=120,
+                    http_async_client=http_client,
+                ).configurable_fields(
+                    model_name=ConfigurableField(id="model_name"),
+                    temperature=ConfigurableField(id="temperature"),
+                    top_p=ConfigurableField(id="top_p"),
+                    max_tokens=ConfigurableField(id="max_tokens"),
+                )
+
+            openai_provider = await hass.async_add_executor_job(
+                _create_openai_provider
             )
         except Exception:
             LOGGER.exception("OpenAI provider init failed; continuing without it.")
@@ -366,12 +373,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: HGAConfigEntry) -> bool:
     openai_embeddings: OpenAIEmbeddings | None = None
     if openai_ok:
         try:
-            openai_embeddings = OpenAIEmbeddings(
-                api_key=api_key,
-                model=entry.options.get(
-                    CONF_OPENAI_EMBEDDING_MODEL, RECOMMENDED_OPENAI_EMBEDDING_MODEL
-                ),
-                dimensions=EMBEDDING_MODEL_DIMS,
+            def _create_openai_embeddings() -> OpenAIEmbeddings:
+                return OpenAIEmbeddings(
+                    api_key=api_key,
+                    model=entry.options.get(
+                        CONF_OPENAI_EMBEDDING_MODEL, RECOMMENDED_OPENAI_EMBEDDING_MODEL
+                    ),
+                    dimensions=EMBEDDING_MODEL_DIMS,
+                )
+
+            openai_embeddings = await hass.async_add_executor_job(
+                _create_openai_embeddings
             )
         except Exception:
             LOGGER.exception("OpenAI embeddings init failed; continuing without them.")
